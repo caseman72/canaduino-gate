@@ -82,40 +82,42 @@ ota:
 logger:
 
 # Relay outputs - internal (controlled by scripts)
+# Arduino Nano ESP32: D2=GPIO5, D3=GPIO6
 switch:
   - platform: gpio
-    pin: 3
+    pin: 6
     id: latch_relay
     internal: true
     restore_mode: ALWAYS_OFF
 
   - platform: gpio
-    pin: 2
+    pin: 5
     id: move_relay
     internal: true
     restore_mode: ALWAYS_OFF
 
 # Unused relay outputs - internal switches held OFF
+# Arduino Nano ESP32: D4=GPIO7, D5=GPIO8, A2=GPIO3, A3=GPIO4
   - platform: gpio
-    pin: 4
+    pin: 7
     id: relay3_unused
     internal: true
     restore_mode: ALWAYS_OFF
 
   - platform: gpio
-    pin: 5
+    pin: 8
     id: relay4_unused
     internal: true
     restore_mode: ALWAYS_OFF
 
   - platform: gpio
-    pin: 19
+    pin: 3
     id: relay5_unused
     internal: true
     restore_mode: ALWAYS_OFF
 
   - platform: gpio
-    pin: 20
+    pin: 4
     id: relay6_unused
     internal: true
     restore_mode: ALWAYS_OFF
@@ -137,10 +139,11 @@ button:
       - script.execute: handle_p2
 
 # Physical inputs
+# Arduino Nano ESP32: D7=GPIO10, D8=GPIO17, D12=GPIO47, D13=GPIO48
 binary_sensor:
   - platform: gpio
     pin:
-      number: 7
+      number: 10
       mode: INPUT_PULLUP
       inverted: true
     name: "Remote P1 Input"
@@ -153,7 +156,7 @@ binary_sensor:
 
   - platform: gpio
     pin:
-      number: 8
+      number: 17
       mode: INPUT_PULLUP
       inverted: true
     name: "Remote P2 Input"
@@ -166,7 +169,7 @@ binary_sensor:
 
   - platform: gpio
     pin:
-      number: 13
+      number: 48
       mode: INPUT_PULLUP
       inverted: true
     name: "Nexx Input"
@@ -179,7 +182,7 @@ binary_sensor:
 
   - platform: gpio
     pin:
-      number: 12
+      number: 47
       mode: INPUT_PULLUP
       inverted: true
     name: "Car Sensor"

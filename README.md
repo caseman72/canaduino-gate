@@ -10,18 +10,20 @@ ESPHome-based gate controller running on an Arduino Nano ESP32 mounted on a Cana
 
 ### Pin Mapping
 
+**Note:** Arduino Nano ESP32 uses different GPIO numbers than standard Arduino Nano.
+
 | Function | Arduino Pin | GPIO | Direction |
 |----------|-------------|------|-----------|
-| P1 Remote Input | D7 | 7 | Input |
-| P2 Remote Input | D8 | 8 | Input |
-| Nexx Input | D13 | 13 | Input |
-| Car Sensor | D12 | 12 | Input |
-| Move Relay | D2 | 2 | Output |
-| Latch Relay | D3 | 3 | Output |
-| Unused Relay 3 | D4 | 4 | Output (held OFF) |
-| Unused Relay 4 | D5 | 5 | Output (held OFF) |
-| Unused Relay 5 | A2 | 19 | Output (held OFF) |
-| Unused Relay 6 | A3 | 20 | Output (held OFF) |
+| P1 Remote Input | D7 | 10 | Input |
+| P2 Remote Input | D8 | 17 | Input |
+| Nexx Input | D13 | 48 | Input |
+| Car Sensor | D12 | 47 | Input |
+| Move Relay | D2 | 5 | Output |
+| Latch Relay | D3 | 6 | Output |
+| Unused Relay 3 | D4 | 7 | Output (held OFF) |
+| Unused Relay 4 | D5 | 8 | Output (held OFF) |
+| Unused Relay 5 | A2 | 3 | Output (held OFF) |
+| Unused Relay 6 | A3 | 4 | Output (held OFF) |
 
 ### Relay Notes
 
