@@ -1,0 +1,407 @@
+esphome:
+  name: gate-controller
+  friendly_name: Gate Controller
+
+esp32:
+  board: arduino_nano_esp32
+  framework:
+    type: esp-idf
+    sdkconfig_options:
+      CONFIG_LOG_COLORS: "n"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  # Static IP for production (uncomment when deploying to gate)
+  # manual_ip:
+  #   static_ip: 192.168.1.100
+  #   gateway: 192.168.1.1
+  #   subnet: 255.255.255.0
+
+# Native ESPHome API disabled - using MQTT instead
+# api:
+#   encryption:
+#     key: !secret api_encryption_key
+#   reboot_timeout: 0s
+
+# MQTT for Home Assistant
+mqtt:
+  broker: !secret mqtt_broker
+  port: 8883
+  username: !secret mqtt_username
+  password: !secret mqtt_password
+  discovery: true
+  discovery_prefix: homeassistant
+  topic_prefix: gate
+  idf_send_async: true
+  log_topic: null
+  on_connect:
+    - logger.log: "MQTT Connected!"
+  on_disconnect:
+    - logger.log: "MQTT Disconnected!"
+  certificate_authority: |
+    -----BEGIN CERTIFICATE-----
+    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
+    -----END CERTIFICATE-----
+
+# Disable native API (using MQTT instead)
+# api:
+
+ota:
+  platform: esphome
+  password: !secret ota_password
+
+logger:
+
+# Outputs - exposed via MQTT (active HIGH - no inversion)
+switch:
+  - platform: gpio
+    pin: 3
+    id: latch_relay
+    name: "Gate Latch"
+    icon: "mdi:gate"
+    restore_mode: ALWAYS_OFF
+
+  - platform: gpio
+    pin: 2
+    id: move_relay
+    name: "Gate Move"
+    icon: "mdi:gate"
+    restore_mode: ALWAYS_OFF
+
+# Unused relay outputs - internal switches held OFF
+  - platform: gpio
+    pin: 4
+    id: relay3_unused
+    internal: true
+    restore_mode: ALWAYS_OFF
+
+  - platform: gpio
+    pin: 5
+    id: relay4_unused
+    internal: true
+    restore_mode: ALWAYS_OFF
+
+  - platform: gpio
+    pin: 19
+    id: relay5_unused
+    internal: true
+    restore_mode: ALWAYS_OFF
+
+  - platform: gpio
+    pin: 20
+    id: relay6_unused
+    internal: true
+    restore_mode: ALWAYS_OFF
+
+# Production MQTT controls for Home Assistant
+button:
+  - platform: template
+    name: "Open Gate"
+    id: btn_open_gate
+    icon: "mdi:gate"
+    on_press:
+      - script.execute: handle_p1
+
+  - platform: template
+    name: "Latch Gate"
+    id: btn_latch_gate
+    icon: "mdi:lock-open-variant"
+    on_press:
+      - script.execute: handle_p2
+
+# Physical inputs
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: 7
+      mode: INPUT_PULLUP
+      inverted: true
+    name: "Remote P1 Input"
+    id: p1_input
+    filters:
+      - delayed_on: 100ms
+      - delayed_off: 100ms
+    on_press:
+      - script.execute: handle_p1
+
+  - platform: gpio
+    pin:
+      number: 8
+      mode: INPUT_PULLUP
+      inverted: true
+    name: "Remote P2 Input"
+    id: p2_input
+    filters:
+      - delayed_on: 100ms
+      - delayed_off: 100ms
+    on_press:
+      - script.execute: handle_p2
+
+  - platform: gpio
+    pin:
+      number: 13
+      mode: INPUT_PULLUP
+      inverted: true
+    name: "Nexx Input"
+    id: nexx_input
+    filters:
+      - delayed_on: 100ms
+      - delayed_off: 100ms
+    on_press:
+      - script.execute: handle_nexx
+
+  - platform: gpio
+    pin:
+      number: 12
+      mode: INPUT_PULLUP
+      inverted: true
+    name: "Car Sensor"
+    id: car_sensor_input
+    filters:
+      - delayed_on: 100ms
+      - delayed_off: 100ms
+    on_press:
+      - script.execute: handle_p4_on
+    on_release:
+      - script.execute: handle_p4_off
+
+# State tracking
+globals:
+  # Always assume CLOSED on reboot - no state restoration
+  - id: gate_latched
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: last_move_time
+    type: unsigned long
+    restore_value: no
+    initial_value: '0'
+  - id: gate_closing
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: gate_opening
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: car_sensor_active
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+
+# Gate state sensor
+text_sensor:
+  - platform: template
+    name: "Gate State"
+    id: gate_state
+    lambda: |-
+      if (id(gate_latched)) return {"LATCHED_OPEN"};
+      if (id(gate_opening)) return {"OPENING"};
+      if (id(gate_closing)) return {"CLOSING"};
+      // Only show OPEN if gate has been moved (last_move_time > 0) and within 90s
+      if (id(last_move_time) > 0 && (millis() - id(last_move_time) < 90000)) return {"OPEN"};
+      return {"CLOSED"};
+    update_interval: 5s
+
+# Scripts for gate logic
+script:
+  - id: do_move
+    then:
+      - logger.log: "Opening gate"
+      - globals.set:
+          id: gate_opening
+          value: 'true'
+      - component.update: gate_state
+      - switch.turn_on: move_relay
+      - delay: 1s
+      - switch.turn_off: move_relay
+      - script.execute: finish_opening
+
+  - id: finish_opening
+    mode: restart
+    then:
+      - delay: 30s
+      - logger.log: "Gate finished opening"
+      - globals.set:
+          id: gate_opening
+          value: 'false'
+      - lambda: 'id(last_move_time) = millis();'
+      - component.update: gate_state
+      # Schedule auto-close after 90s
+      - script.execute: notify_auto_close
+
+  - id: notify_auto_close
+    mode: restart
+    then:
+      - delay: 90s
+      - if:
+          condition:
+            lambda: 'return !id(gate_latched) && !id(car_sensor_active);'
+          then:
+            - logger.log: "Gate auto-closing - CLOSING"
+            - lambda: 'id(last_move_time) = 0;'
+            - globals.set:
+                id: gate_closing
+                value: 'true'
+            - component.update: gate_state
+            - delay: 30s
+            - logger.log: "Gate finished closing"
+            - globals.set:
+                id: gate_closing
+                value: 'false'
+            - component.update: gate_state
+
+  - id: do_latch
+    then:
+      - if:
+          condition:
+            lambda: 'return id(gate_latched);'
+          then:
+            - logger.log: "Unlatching gate - CLOSING"
+            - globals.set:
+                id: gate_latched
+                value: 'false'
+            - globals.set:
+                id: gate_closing
+                value: 'true'
+            - component.update: gate_state
+            - switch.turn_off: latch_relay
+            - delay: 1s
+            - script.execute: do_move_no_auto_close
+            - script.execute: finish_closing
+          else:
+            - logger.log: "Latching gate open - OPENING"
+            - globals.set:
+                id: gate_opening
+                value: 'true'
+            - component.update: gate_state
+            - switch.turn_on: latch_relay
+            - script.execute: finish_opening_latched
+
+  - id: finish_opening_latched
+    mode: restart
+    then:
+      - delay: 30s
+      - logger.log: "Gate finished opening - LATCHED_OPEN"
+      - globals.set:
+          id: gate_opening
+          value: 'false'
+      - globals.set:
+          id: gate_latched
+          value: 'true'
+      - component.update: gate_state
+
+  - id: do_move_no_auto_close
+    then:
+      - logger.log: "Moving gate (no auto-close)"
+      - switch.turn_on: move_relay
+      - delay: 1s
+      - switch.turn_off: move_relay
+
+  - id: finish_closing
+    mode: restart
+    then:
+      - delay: 30s
+      - logger.log: "Gate finished closing"
+      - globals.set:
+          id: gate_closing
+          value: 'false'
+      - lambda: 'id(last_move_time) = 0;'
+      - component.update: gate_state
+
+  - id: handle_p1
+    then:
+      - if:
+          condition:
+            lambda: 'return id(gate_latched);'
+          then:
+            - script.execute: do_latch  # Unlatch
+          else:
+            - script.execute: do_move
+
+  - id: handle_p2
+    then:
+      - script.execute: do_latch
+
+  - id: handle_nexx
+    then:
+      - script.execute: do_latch
+
+  - id: handle_p4_on
+    then:
+      - logger.log: "P4 Car sensor ON"
+      - switch.turn_on: latch_relay
+      - globals.set:
+          id: car_sensor_active
+          value: 'true'
+      - script.stop: notify_auto_close
+      # Only set OPENING if gate is currently CLOSED
+      - if:
+          condition:
+            lambda: 'return !id(gate_opening) && !id(gate_latched) && !id(gate_closing) && id(last_move_time) == 0;'
+          then:
+            - logger.log: "Gate was CLOSED - now OPENING via passthrough"
+            - globals.set:
+                id: gate_opening
+                value: 'true'
+            - component.update: gate_state
+            - script.execute: finish_opening
+      # If OPEN (not opening/closing), reset the 90s timer
+      - if:
+          condition:
+            lambda: 'return !id(gate_opening) && !id(gate_closing) && id(last_move_time) > 0;'
+          then:
+            - logger.log: "Gate is OPEN - resetting 90s timer"
+            - lambda: 'id(last_move_time) = millis();'
+            - component.update: gate_state
+      # If OPENING, just log - finish_opening will handle the rest
+      - if:
+          condition:
+            lambda: 'return id(gate_opening);'
+          then:
+            - logger.log: "Gate is OPENING - P4 noted, timer will start when open"
+
+  - id: handle_p4_off
+    then:
+      - logger.log: "P4 Car sensor OFF"
+      - switch.turn_off: latch_relay
+      - globals.set:
+          id: car_sensor_active
+          value: 'false'
+      # Only start 90s timer if gate is actually open (not closed)
+      - if:
+          condition:
+            lambda: 'return id(last_move_time) > 0 || id(gate_opening);'
+          then:
+            - logger.log: "Gate is open - starting 90s timer"
+            - lambda: 'id(last_move_time) = millis();'
+            - script.execute: notify_auto_close
