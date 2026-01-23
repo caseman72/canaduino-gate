@@ -81,20 +81,18 @@ ota:
 
 logger:
 
-# Outputs - exposed via MQTT (active HIGH - no inversion)
+# Relay outputs - internal (controlled by scripts)
 switch:
   - platform: gpio
     pin: 3
     id: latch_relay
-    name: "Gate Latch"
-    icon: "mdi:gate"
+    internal: true
     restore_mode: ALWAYS_OFF
 
   - platform: gpio
     pin: 2
     id: move_relay
-    name: "Gate Move"
-    icon: "mdi:gate"
+    internal: true
     restore_mode: ALWAYS_OFF
 
 # Unused relay outputs - internal switches held OFF
@@ -193,6 +191,19 @@ binary_sensor:
       - script.execute: handle_p4_on
     on_release:
       - script.execute: handle_p4_off
+
+  # Relay state indicators (read-only in HA)
+  - platform: template
+    name: "Latch Relay"
+    id: latch_relay_state
+    icon: "mdi:electric-switch"
+    lambda: 'return id(latch_relay).state;'
+
+  - platform: template
+    name: "Move Relay"
+    id: move_relay_state
+    icon: "mdi:electric-switch"
+    lambda: 'return id(move_relay).state;'
 
 # State tracking
 globals:
