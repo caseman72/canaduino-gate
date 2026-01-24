@@ -1,3 +1,9 @@
+substitutions:
+  gate_move_duration: "15s"
+  gate_move_duration_ms: "15000"
+  auto_close_delay: "60s"
+  auto_close_delay_ms: "60000"
+
 esphome:
   name: gate-controller
   friendly_name: Gate Controller
@@ -228,6 +234,23 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
+  # STOP state tracking
+  - id: gate_stopped
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: stop_was_opening
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: stop_elapsed_ms
+    type: unsigned long
+    restore_value: no
+    initial_value: '0'
+  - id: movement_start_time
+    type: unsigned long
+    restore_value: no
+    initial_value: '0'
 
 # Gate state sensor
 text_sensor:
@@ -236,10 +259,11 @@ text_sensor:
     id: gate_state
     lambda: |-
       if (id(gate_latched)) return {"LATCHED_OPEN"};
+      if (id(gate_stopped)) return {"STOP"};
       if (id(gate_opening)) return {"OPENING"};
       if (id(gate_closing)) return {"CLOSING"};
-      // Only show OPEN if gate has been moved (last_move_time > 0) and within 90s
-      if (id(last_move_time) > 0 && (millis() - id(last_move_time) < 90000)) return {"OPEN"};
+      // Only show OPEN if gate has been moved (last_move_time > 0) and within auto_close_delay
+      if (id(last_move_time) > 0 && (millis() - id(last_move_time) < ${auto_close_delay_ms})) return {"OPEN"};
       return {"CLOSED"};
     update_interval: 5s
 
@@ -248,6 +272,7 @@ script:
   - id: do_move
     then:
       - logger.log: "Opening gate"
+      - lambda: 'id(movement_start_time) = millis();'
       - globals.set:
           id: gate_opening
           value: 'true'
@@ -260,31 +285,33 @@ script:
   - id: finish_opening
     mode: restart
     then:
-      - delay: 30s
+      - delay: ${gate_move_duration}
       - logger.log: "Gate finished opening"
       - globals.set:
           id: gate_opening
           value: 'false'
       - lambda: 'id(last_move_time) = millis();'
       - component.update: gate_state
-      # Schedule auto-close after 90s
+      # Schedule auto-close after 60s
       - script.execute: notify_auto_close
 
   - id: notify_auto_close
     mode: restart
     then:
-      - delay: 90s
+      - delay: ${auto_close_delay}
       - if:
           condition:
-            lambda: 'return !id(gate_latched) && !id(car_sensor_active);'
+            lambda: 'return !id(gate_latched) && !id(car_sensor_active) && !id(gate_stopped);'
           then:
             - logger.log: "Gate auto-closing - CLOSING"
-            - lambda: 'id(last_move_time) = 0;'
+            - lambda: |-
+                id(last_move_time) = 0;
+                id(movement_start_time) = millis();
             - globals.set:
                 id: gate_closing
                 value: 'true'
             - component.update: gate_state
-            - delay: 30s
+            - delay: ${gate_move_duration}
             - logger.log: "Gate finished closing"
             - globals.set:
                 id: gate_closing
@@ -298,6 +325,7 @@ script:
             lambda: 'return id(gate_latched);'
           then:
             - logger.log: "Unlatching gate - CLOSING"
+            - lambda: 'id(movement_start_time) = millis();'
             - globals.set:
                 id: gate_latched
                 value: 'false'
@@ -311,6 +339,7 @@ script:
             - script.execute: finish_closing
           else:
             - logger.log: "Latching gate open - OPENING"
+            - lambda: 'id(movement_start_time) = millis();'
             - globals.set:
                 id: gate_opening
                 value: 'true'
@@ -321,7 +350,7 @@ script:
   - id: finish_opening_latched
     mode: restart
     then:
-      - delay: 30s
+      - delay: ${gate_move_duration}
       - logger.log: "Gate finished opening - LATCHED_OPEN"
       - globals.set:
           id: gate_opening
@@ -341,7 +370,7 @@ script:
   - id: finish_closing
     mode: restart
     then:
-      - delay: 30s
+      - delay: ${gate_move_duration}
       - logger.log: "Gate finished closing"
       - globals.set:
           id: gate_closing
@@ -357,7 +386,128 @@ script:
           then:
             - script.execute: do_latch  # Unlatch
           else:
-            - script.execute: do_move
+            - if:
+                condition:
+                  lambda: 'return id(gate_opening) || id(gate_closing);'
+                then:
+                  # STOP - capture timing and stop movement
+                  - script.execute: do_stop
+                else:
+                  - if:
+                      condition:
+                        lambda: 'return id(gate_stopped);'
+                      then:
+                        # Resume from STOP in opposite direction
+                        - script.execute: resume_from_stop
+                      else:
+                        # CLOSED or OPEN - normal open
+                        - script.execute: do_move
+
+  - id: do_stop
+    then:
+      - logger.log: "STOP - halting gate movement"
+      # Capture elapsed time and direction
+      - lambda: |-
+          id(stop_elapsed_ms) = millis() - id(movement_start_time);
+          id(stop_was_opening) = id(gate_opening);
+      # Stop any running finish scripts
+      - script.stop: finish_opening
+      - script.stop: finish_closing
+      - script.stop: finish_opening_latched
+      - script.stop: notify_auto_close
+      # Clear movement states
+      - globals.set:
+          id: gate_opening
+          value: 'false'
+      - globals.set:
+          id: gate_closing
+          value: 'false'
+      - globals.set:
+          id: gate_stopped
+          value: 'true'
+      - component.update: gate_state
+      # Start auto-close timer from STOP
+      - script.execute: auto_close_from_stop
+
+  - id: resume_from_stop
+    then:
+      - logger.log: "Resuming from STOP in opposite direction"
+      - globals.set:
+          id: gate_stopped
+          value: 'false'
+      - script.stop: auto_close_from_stop
+      # Pulse the move relay to start movement
+      - switch.turn_on: move_relay
+      - delay: 1s
+      - switch.turn_off: move_relay
+      - if:
+          condition:
+            lambda: 'return id(stop_was_opening);'
+          then:
+            # Was opening, now closing for same duration
+            - logger.log: "Was OPENING, now CLOSING"
+            - lambda: 'id(movement_start_time) = millis();'
+            - globals.set:
+                id: gate_closing
+                value: 'true'
+            - component.update: gate_state
+            - delay: !lambda 'return id(stop_elapsed_ms);'
+            - logger.log: "Gate finished closing from STOP"
+            - globals.set:
+                id: gate_closing
+                value: 'false'
+            - lambda: 'id(last_move_time) = 0;'
+            - component.update: gate_state
+          else:
+            # Was closing, now opening for same duration
+            - logger.log: "Was CLOSING, now OPENING"
+            - lambda: 'id(movement_start_time) = millis();'
+            - globals.set:
+                id: gate_opening
+                value: 'true'
+            - component.update: gate_state
+            - delay: !lambda 'return id(stop_elapsed_ms);'
+            - logger.log: "Gate finished opening from STOP"
+            - globals.set:
+                id: gate_opening
+                value: 'false'
+            - lambda: 'id(last_move_time) = millis();'
+            - component.update: gate_state
+            - script.execute: notify_auto_close
+
+  - id: auto_close_from_stop
+    mode: restart
+    then:
+      - delay: ${auto_close_delay}
+      - if:
+          condition:
+            lambda: 'return id(gate_stopped) && !id(gate_latched) && !id(car_sensor_active);'
+          then:
+            - logger.log: "Auto-closing from STOP"
+            - globals.set:
+                id: gate_stopped
+                value: 'false'
+            - lambda: 'id(movement_start_time) = millis();'
+            - globals.set:
+                id: gate_closing
+                value: 'true'
+            - component.update: gate_state
+            # Calculate closing duration
+            - if:
+                condition:
+                  lambda: 'return id(stop_was_opening);'
+                then:
+                  # Was opening - close for same duration
+                  - delay: !lambda 'return id(stop_elapsed_ms);'
+                else:
+                  # Was closing - close for remaining time
+                  - delay: !lambda 'return ${gate_move_duration_ms} - id(stop_elapsed_ms);'
+            - logger.log: "Gate finished auto-closing from STOP"
+            - globals.set:
+                id: gate_closing
+                value: 'false'
+            - lambda: 'id(last_move_time) = 0;'
+            - component.update: gate_state
 
   - id: handle_p2
     then:
@@ -386,12 +536,12 @@ script:
                 value: 'true'
             - component.update: gate_state
             - script.execute: finish_opening
-      # If OPEN (not opening/closing), reset the 90s timer
+      # If OPEN (not opening/closing), reset the 60s timer
       - if:
           condition:
             lambda: 'return !id(gate_opening) && !id(gate_closing) && id(last_move_time) > 0;'
           then:
-            - logger.log: "Gate is OPEN - resetting 90s timer"
+            - logger.log: "Gate is OPEN - resetting 60s timer"
             - lambda: 'id(last_move_time) = millis();'
             - component.update: gate_state
       # If OPENING, just log - finish_opening will handle the rest
@@ -408,11 +558,11 @@ script:
       - globals.set:
           id: car_sensor_active
           value: 'false'
-      # Only start 90s timer if gate is actually open (not closed)
+      # Only start 60s timer if gate is actually open (not closed)
       - if:
           condition:
             lambda: 'return id(last_move_time) > 0 || id(gate_opening);'
           then:
-            - logger.log: "Gate is open - starting 90s timer"
+            - logger.log: "Gate is open - starting 60s timer"
             - lambda: 'id(last_move_time) = millis();'
             - script.execute: notify_auto_close

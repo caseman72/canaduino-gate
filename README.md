@@ -32,21 +32,40 @@ ESPHome-based gate controller running on an Arduino Nano ESP32 mounted on a Cana
 - Relays are dry contacts (ground switching only)
 - 12V power required for relays to actuate (USB power only lights indicators)
 
+### Input Wiring
+
+PLC opto-isolated inputs require a **5V source feed** (not dry ground contact). When the dry contact closes, current flows through the opto-isolator, driving the GPIO HIGH.
+
+## Configuration
+
+Timing values are defined as substitutions at the top of `gate-controller.yaml`:
+
+```yaml
+substitutions:
+  gate_move_duration: "15s"      # Time for gate to open/close
+  gate_move_duration_ms: "15000"
+  auto_close_delay: "60s"        # Time before auto-close triggers
+  auto_close_delay_ms: "60000"
+```
+
 ## Gate States
 
 | State | Description |
 |-------|-------------|
 | CLOSED | Gate is closed |
-| OPENING | Gate is opening (30s duration) |
-| OPEN | Gate is open, 90s auto-close timer running |
-| CLOSING | Gate is closing (30s duration) |
+| OPENING | Gate is opening (15s duration) |
+| OPEN | Gate is open, 60s auto-close timer running |
+| STOP | Gate stopped mid-movement, 60s auto-close timer running |
+| CLOSING | Gate is closing (15s duration) |
 | LATCHED_OPEN | Gate is latched open indefinitely |
 
 ## Input Functions
 
 ### P1 (Remote Button 1)
 - If gate is **LATCHED_OPEN**: Unlatch and close
-- Otherwise: Open gate (with 90s auto-close)
+- If gate is **OPENING** or **CLOSING**: Stop gate (STOP state)
+- If gate is **STOP**: Resume in opposite direction for same elapsed time
+- Otherwise: Open gate (with 60s auto-close)
 
 ### P2 (Remote Button 2) / Nexx
 - Toggle latch state
@@ -56,8 +75,12 @@ ESPHome-based gate controller running on an Arduino Nano ESP32 mounted on a Cana
 ### P4 (Car Sensor)
 - Magnetic sensor that detects vehicles
 - **ON**: Opens gate (via passthrough), stops auto-close timer
-- **OFF**: Starts 90s auto-close timer
+- **OFF**: Starts 60s auto-close timer
 - Parking a car next to sensor keeps gate open indefinitely
+
+### Auto-close from STOP
+- If was **OPENING** for X seconds: Auto-close will **CLOSE** for X seconds
+- If was **CLOSING** for X seconds: Auto-close will **CLOSE** for remaining (15s - X) seconds
 
 ## MQTT
 
