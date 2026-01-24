@@ -140,12 +140,12 @@ button:
 
 # Physical inputs
 # Arduino Nano ESP32: D7=GPIO10, D8=GPIO17, D12=GPIO47, D13=GPIO48
+# PLC opto needs 5V source feed - INPUT_PULLDOWN, active HIGH when triggered
 binary_sensor:
   - platform: gpio
     pin:
       number: 10
-      mode: INPUT_PULLUP
-      inverted: true
+      mode: INPUT_PULLDOWN
     name: "Remote P1 Input"
     id: p1_input
     filters:
@@ -157,8 +157,7 @@ binary_sensor:
   - platform: gpio
     pin:
       number: 17
-      mode: INPUT_PULLUP
-      inverted: true
+      mode: INPUT_PULLDOWN
     name: "Remote P2 Input"
     id: p2_input
     filters:
@@ -170,8 +169,7 @@ binary_sensor:
   - platform: gpio
     pin:
       number: 48
-      mode: INPUT_PULLUP
-      inverted: true
+      mode: INPUT_PULLDOWN
     name: "Nexx Input"
     id: nexx_input
     filters:
@@ -183,8 +181,7 @@ binary_sensor:
   - platform: gpio
     pin:
       number: 47
-      mode: INPUT_PULLUP
-      inverted: true
+      mode: INPUT_PULLDOWN
     name: "Car Sensor"
     id: car_sensor_input
     filters:
