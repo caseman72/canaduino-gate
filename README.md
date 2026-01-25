@@ -16,8 +16,7 @@ ESPHome-based gate controller running on an Arduino Nano ESP32 mounted on a Cana
 |----------|-------------|------|-----------|
 | P1 Remote Input | D7 | 10 | Input |
 | P2 Remote Input | D8 | 17 | Input |
-| Nexx Input | D13 | 48 | Input |
-| Car Sensor | D12 | 47 | Input |
+| Car Sensor | D13 | 48 | Input |
 | Move Relay | D2 | 5 | Output |
 | Latch Relay | D3 | 6 | Output |
 | Unused Relay 3 | D4 | 7 | Output (held OFF) |
@@ -67,7 +66,7 @@ substitutions:
 - If gate is **STOP**: Resume in opposite direction for same elapsed time
 - Otherwise: Open gate (with 60s auto-close)
 
-### P2 (Remote Button 2) / Nexx
+### P2 (Remote Button 2)
 - Toggle latch state
 - If **CLOSED**: Latch open
 - If **LATCHED_OPEN**: Unlatch and close
