@@ -1,8 +1,8 @@
 substitutions:
-  gate_move_duration: "15s"
-  gate_move_duration_ms: "15000"
-  auto_close_delay: "60s"
-  auto_close_delay_ms: "60000"
+  gate_move_duration: "10s"
+  gate_move_duration_ms: "10000"
+  auto_close_delay: "30s"
+  auto_close_delay_ms: "30000"
 
 esphome:
   name: gate-controller
@@ -40,7 +40,7 @@ mqtt:
   discovery_prefix: homeassistant
   topic_prefix: gate
   idf_send_async: true
-  log_topic: null
+  # log_topic: null
   on_connect:
     - logger.log: "MQTT Connected!"
   on_disconnect:
@@ -86,6 +86,7 @@ ota:
   password: !secret ota_password
 
 logger:
+  level: DEBUG
 
 # Relay outputs - internal (controlled by scripts)
 # Arduino Nano ESP32: D2=GPIO5, D3=GPIO6
@@ -131,14 +132,14 @@ switch:
 # Production MQTT controls for Home Assistant
 button:
   - platform: template
-    name: "Open Gate"
+    name: "P1 Button - Open"
     id: btn_open_gate
     icon: "mdi:gate"
     on_press:
       - script.execute: handle_p1
 
   - platform: template
-    name: "Latch Gate"
+    name: "P2 Button - Latch"
     id: btn_latch_gate
     icon: "mdi:lock-open-variant"
     on_press:
@@ -152,8 +153,9 @@ binary_sensor:
     pin:
       number: 10
       mode: INPUT_PULLDOWN
-    name: "Remote P1 Input"
+    name: "Input P1 Move"
     id: p1_input
+    icon: "mdi:numeric-1-box"
     filters:
       - delayed_on: 100ms
       - delayed_off: 100ms
@@ -164,8 +166,9 @@ binary_sensor:
     pin:
       number: 17
       mode: INPUT_PULLDOWN
-    name: "Remote P2 Input"
+    name: "Input P2 Latch"
     id: p2_input
+    icon: "mdi:numeric-2-box"
     filters:
       - delayed_on: 100ms
       - delayed_off: 100ms
@@ -176,8 +179,9 @@ binary_sensor:
     pin:
       number: 48
       mode: INPUT_PULLDOWN
-    name: "Car Sensor"
+    name: "Input P4 Magneto"
     id: car_sensor_input
+    icon: "mdi:car-connected"
     filters:
       - delayed_on: 100ms
       - delayed_off: 100ms
@@ -188,16 +192,17 @@ binary_sensor:
 
   # Relay state indicators (read-only in HA)
   - platform: template
-    name: "Latch Relay"
+    name: "Relay 1 Move"
+    id: move_relay_state
+    icon: "mdi:electric-switch"
+    lambda: 'return id(move_relay).state;'
+
+  - platform: template
+    name: "Relay 2 Latch"
     id: latch_relay_state
     icon: "mdi:electric-switch"
     lambda: 'return id(latch_relay).state;'
 
-  - platform: template
-    name: "Move Relay"
-    id: move_relay_state
-    icon: "mdi:electric-switch"
-    lambda: 'return id(move_relay).state;'
 
 # State tracking
 globals:
@@ -243,14 +248,15 @@ globals:
 # Gate state sensor
 text_sensor:
   - platform: template
-    name: "Gate State"
+    name: "Gate Status"
     id: gate_state
     lambda: |-
       if (id(gate_latched)) return {"LATCHED_OPEN"};
       if (id(gate_stopped)) return {"STOP"};
       if (id(gate_opening)) return {"OPENING"};
       if (id(gate_closing)) return {"CLOSING"};
-      // Only show OPEN if gate has been moved (last_move_time > 0) and within auto_close_delay
+      // OPEN if car_sensor_active, or if within auto_close_delay window
+      if (id(car_sensor_active)) return {"OPEN"};
       if (id(last_move_time) > 0 && (millis() - id(last_move_time) < ${auto_close_delay_ms})) return {"OPEN"};
       return {"CLOSED"};
     update_interval: 5s
@@ -535,6 +541,12 @@ script:
                 value: 'false'
             - lambda: 'id(last_move_time) = millis();'
             - component.update: gate_state
+            # If P4 released during reversal, start auto-close
+            - if:
+                condition:
+                  lambda: 'return !id(car_sensor_active);'
+                then:
+                  - script.execute: notify_auto_close
           else:
             # Handle other states
             - lambda: |-
@@ -550,10 +562,24 @@ script:
                   id(last_move_time) = millis();
                   id(gate_state).update();
                 } else if (state == "STOP") {
-                  ESP_LOGI("gate", "Gate was STOP - treating as OPEN, resetting timer");
+                  // P4 while STOP - need to open the gate
                   id(gate_stopped) = false;
-                  id(last_move_time) = millis();
-                  id(gate_state).update();
+                  if (id(stop_was_opening)) {
+                    // Was opening - continue opening for remaining time
+                    ESP_LOGI("gate", "Gate was STOP (opening) - continuing to open");
+                    unsigned long remaining = ${gate_move_duration_ms} - id(stop_elapsed_ms);
+                    id(movement_start_time) = millis() - id(stop_elapsed_ms);  // Adjust for elapsed
+                    id(gate_opening) = true;
+                    id(gate_state).update();
+                    id(finish_opening).execute();
+                  } else {
+                    // Was closing - reverse and open fully
+                    ESP_LOGI("gate", "Gate was STOP (closing) - reversing to open");
+                    id(movement_start_time) = millis();
+                    id(gate_opening) = true;
+                    id(gate_state).update();
+                    id(finish_opening).execute();
+                  }
                 }
                 // OPENING, LATCHED_OPEN - no action needed
 
