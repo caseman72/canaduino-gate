@@ -44,16 +44,11 @@ esp32:
 wifi:
   ssid: ${wifi_primary_ssid}
   password: ${wifi_primary_password}
-  # Static IP for production (uncomment when deploying to gate)
-  # manual_ip:
-  #   static_ip: 192.168.1.100
-  #   gateway: 192.168.1.1
-  #   subnet: 255.255.255.0
 
 # Native ESPHome API disabled - using MQTT instead
 # api:
 #   encryption:
-#     key: !secret api_encryption_key
+#     key: ${api_encryption_key}
 #   reboot_timeout: 0s
 
 # MQTT for Home Assistant
@@ -187,7 +182,7 @@ button:
       - script.execute: switch_network
 
 # Physical inputs
-# Arduino Nano ESP32: D7=GPIO10 (DI1), D8=GPIO17 (DI2), D13=GPIO48 (DI4)
+# Arduino Nano ESP32: D7=GPIO10 (DI1), D8=GPIO17 (DI2), D12=GPIO47 (DI3), D13=GPIO48 (DI4)
 # PLC opto needs 5V source feed - INPUT_PULLDOWN, active HIGH when triggered
 binary_sensor:
   - platform: gpio
@@ -320,18 +315,14 @@ text_sensor:
     update_interval: 5s
 
   - platform: wifi_info
-    ssid:
-      name: "WiFi Network"
-      id: wifi_network
-      icon: "mdi:wifi"
     ip_address:
       name: "IP Address"
       id: wifi_ip
       icon: "mdi:ip-network"
 
   - platform: template
-    name: "Selected Network"
-    id: selected_network
+    name: "WiFi Network"
+    id: wifi_network
     icon: "mdi:wifi-cog"
     lambda: |-
       if (id(use_secondary_network)) {
@@ -686,7 +677,7 @@ script:
           } else {
             ESP_LOGI("wifi", "Switching to ${wifi_primary_ssid} - will restart");
           }
-      - component.update: selected_network
+      - component.update: wifi_network
       - delay: 500ms
       - lambda: |-
           App.safe_reboot();
