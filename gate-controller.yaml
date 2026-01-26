@@ -4,9 +4,35 @@ substitutions:
   auto_close_delay: "60s"
   auto_close_delay_ms: "60000"
 
+  # Secrets - override via upload.sh or -s flags
+  wifi_primary_ssid: "PLACEHOLDER"
+  wifi_primary_password: "PLACEHOLDER"
+  wifi_secondary_ssid: "PLACEHOLDER"
+  wifi_secondary_password: "PLACEHOLDER"
+  mqtt_broker: "PLACEHOLDER"
+  mqtt_username: "PLACEHOLDER"
+  mqtt_password: "PLACEHOLDER"
+  ota_password: "PLACEHOLDER"
+
 esphome:
   name: gate-controller
   friendly_name: Gate Controller
+  includes:
+    - wifi_switch.h
+  on_boot:
+    priority: 599  # Right after globals restored (600), well before WiFi connects (250)
+    then:
+      - lambda: |-
+          ESP_LOGW("boot", "use_secondary_network = %s", id(use_secondary_network) ? "TRUE" : "FALSE");
+          if (id(use_secondary_network)) {
+            ESP_LOGW("boot", "SWITCHING to secondary: ${wifi_secondary_ssid}");
+            wifi::WiFiAP ap;
+            ap.set_ssid("${wifi_secondary_ssid}");
+            ap.set_password("${wifi_secondary_password}");
+            wifi::global_wifi_component->set_sta(ap);
+          } else {
+            ESP_LOGW("boot", "Using primary: ${wifi_primary_ssid}");
+          }
 
 esp32:
   board: arduino_nano_esp32
@@ -16,8 +42,8 @@ esp32:
       CONFIG_LOG_COLORS: "n"
 
 wifi:
-  ssid: !secret wifi_ssid
-  password: !secret wifi_password
+  ssid: ${wifi_primary_ssid}
+  password: ${wifi_primary_password}
   # Static IP for production (uncomment when deploying to gate)
   # manual_ip:
   #   static_ip: 192.168.1.100
@@ -32,10 +58,10 @@ wifi:
 
 # MQTT for Home Assistant
 mqtt:
-  broker: !secret mqtt_broker
+  broker: ${mqtt_broker}
   port: 8883
-  username: !secret mqtt_username
-  password: !secret mqtt_password
+  username: ${mqtt_username}
+  password: ${mqtt_password}
   discovery: true
   discovery_prefix: homeassistant
   topic_prefix: gate
@@ -83,7 +109,7 @@ mqtt:
 
 ota:
   platform: esphome
-  password: !secret ota_password
+  password: ${ota_password}
 
 logger:
   level: INFO
@@ -153,6 +179,13 @@ button:
     on_press:
       - script.execute: handle_p2
 
+  - platform: template
+    name: "P3 Button - Switch Network"
+    id: btn_switch_network
+    icon: "mdi:wifi-sync"
+    on_press:
+      - script.execute: switch_network
+
 # Physical inputs
 # Arduino Nano ESP32: D7=GPIO10 (DI1), D8=GPIO17 (DI2), D13=GPIO48 (DI4)
 # PLC opto needs 5V source feed - INPUT_PULLDOWN, active HIGH when triggered
@@ -198,6 +231,19 @@ binary_sensor:
     on_release:
       - script.execute: handle_p4_off
 
+  - platform: gpio
+    pin:
+      number: 47
+      mode: INPUT_PULLDOWN
+    name: "Input P3 Network"
+    id: p3_input
+    icon: "mdi:wifi-sync"
+    filters:
+      - delayed_on: 100ms
+      - delayed_off: 100ms
+    on_press:
+      - script.execute: switch_network
+
   # Relay state indicators (read-only in HA)
   - platform: template
     name: "Relay 1 Move"
@@ -234,6 +280,10 @@ globals:
   - id: car_sensor_active
     type: bool
     restore_value: no
+    initial_value: 'false'
+  - id: use_secondary_network
+    type: bool
+    restore_value: yes
     initial_value: 'false'
   # STOP state tracking
   - id: gate_stopped
@@ -274,6 +324,20 @@ text_sensor:
       name: "WiFi Network"
       id: wifi_network
       icon: "mdi:wifi"
+    ip_address:
+      name: "IP Address"
+      id: wifi_ip
+      icon: "mdi:ip-network"
+
+  - platform: template
+    name: "Selected Network"
+    id: selected_network
+    icon: "mdi:wifi-cog"
+    lambda: |-
+      if (id(use_secondary_network)) {
+        return {"${wifi_secondary_ssid}"};
+      }
+      return {"${wifi_primary_ssid}"};
 
 # Scripts for gate logic
 script:
@@ -612,3 +676,17 @@ script:
             - logger.log: "Gate is OPEN - starting 60s timer"
             - lambda: 'id(last_move_time) = millis();'
             - script.execute: notify_auto_close
+
+  - id: switch_network
+    then:
+      - lambda: |-
+          id(use_secondary_network) = !id(use_secondary_network);
+          if (id(use_secondary_network)) {
+            ESP_LOGI("wifi", "Switching to ${wifi_secondary_ssid} - will restart");
+          } else {
+            ESP_LOGI("wifi", "Switching to ${wifi_primary_ssid} - will restart");
+          }
+      - component.update: selected_network
+      - delay: 500ms
+      - lambda: |-
+          App.safe_reboot();

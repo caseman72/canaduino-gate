@@ -16,7 +16,8 @@ ESPHome-based gate controller running on an Arduino Nano ESP32 mounted on a Cana
 |----------|-------------|------|-----------|
 | P1 Remote Input | D7 | 10 | Input |
 | P2 Remote Input | D8 | 17 | Input |
-| Car Sensor | D13 | 48 | Input |
+| P3 Network Switch | D12 | 47 | Input |
+| P4 Car Sensor | D13 | 48 | Input |
 | Move Relay | D2 | 5 | Output |
 | Latch Relay | D3 | 6 | Output |
 | Unused Relay 3 | D4 | 7 | Output (held OFF) |
@@ -71,6 +72,13 @@ substitutions:
 - If **CLOSED**: Latch open
 - If **LATCHED_OPEN**: Unlatch and close
 
+### P3 (Network Switch)
+- Toggle between WiFi networks
+- **Primary (default):** Starlink (DishyMcFlatface)
+- **Secondary:** Farmland (for OTA updates from home)
+- Network selection persists across reboots
+- Can also be triggered via Home Assistant button
+
 ### P4 (Car Sensor)
 - Magnetic sensor that detects vehicles
 - **ON**: Opens gate (via passthrough), stops auto-close timer
@@ -94,6 +102,7 @@ Uses HiveMQ Cloud with TLS on port 8883.
 **Controls:**
 - `gate/button/open_gate/command` - Send "PRESS" to open
 - `gate/button/latch_gate/command` - Send "PRESS" to toggle latch
+- `gate/button/switch_network/command` - Send "PRESS" to toggle WiFi network
 
 **Relays (direct access):**
 - `gate/switch/gate_latch/command` - "ON" or "OFF"
@@ -126,10 +135,10 @@ pip install esphome
 Copy the example secrets file and fill in your values:
 
 ```bash
-cp secrets.example.yaml secrets.yaml
+cp secrets.example.h secrets.h
 ```
 
-Edit `secrets.yaml` with your WiFi and MQTT credentials.
+Edit `secrets.h` with your WiFi, MQTT, and OTA credentials.
 
 ### 3. First Flash (USB)
 
@@ -160,9 +169,9 @@ esphome run gate-controller.yaml --device gate-controller.local
 ```
 canaduino-gate/
 ├── gate-controller.yaml    # Main ESPHome configuration
-├── secrets.yaml            # WiFi/MQTT credentials (git-ignored)
-├── secrets.example.yaml    # Template for secrets
-├── upload.sh               # OTA upload script
+├── secrets.h               # All credentials (git-ignored)
+├── secrets.example.h       # Template for secrets
+├── upload.sh               # OTA upload script (parses secrets.h)
 ├── README.md               # This file
 └── .gitignore              # Git ignore rules
 ```
