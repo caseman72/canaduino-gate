@@ -1,8 +1,8 @@
 substitutions:
-  gate_move_duration: "10s"
-  gate_move_duration_ms: "10000"
-  auto_close_delay: "30s"
-  auto_close_delay_ms: "30000"
+  gate_move_duration: "15s"
+  gate_move_duration_ms: "15000"
+  auto_close_delay: "60s"
+  auto_close_delay_ms: "60000"
 
 esphome:
   name: gate-controller
@@ -40,7 +40,7 @@ mqtt:
   discovery_prefix: homeassistant
   topic_prefix: gate
   idf_send_async: true
-  # log_topic: null
+  log_topic: null
   on_connect:
     - logger.log: "MQTT Connected!"
   on_disconnect:
@@ -86,7 +86,15 @@ ota:
   password: !secret ota_password
 
 logger:
-  level: DEBUG
+  level: INFO
+
+# WiFi diagnostics
+sensor:
+  - platform: wifi_signal
+    name: "WiFi RSSI"
+    id: wifi_rssi
+    update_interval: 60s
+    icon: "mdi:wifi"
 
 # Relay outputs - internal (controlled by scripts)
 # Arduino Nano ESP32: D2=GPIO5, D3=GPIO6
@@ -251,15 +259,21 @@ text_sensor:
     name: "Gate Status"
     id: gate_state
     lambda: |-
-      if (id(gate_latched)) return {"LATCHED_OPEN"};
-      if (id(gate_stopped)) return {"STOP"};
-      if (id(gate_opening)) return {"OPENING"};
-      if (id(gate_closing)) return {"CLOSING"};
-      // OPEN if car_sensor_active, or if within auto_close_delay window
-      if (id(car_sensor_active)) return {"OPEN"};
-      if (id(last_move_time) > 0 && (millis() - id(last_move_time) < ${auto_close_delay_ms})) return {"OPEN"};
-      return {"CLOSED"};
+      if (id(gate_latched)) return {"Latched"};
+      if (id(gate_stopped)) return {"Stop"};
+      if (id(gate_opening)) return {"Opening"};
+      if (id(gate_closing)) return {"Closing"};
+      // Open if car_sensor_active, or if within auto_close_delay window
+      if (id(car_sensor_active)) return {"Open"};
+      if (id(last_move_time) > 0 && (millis() - id(last_move_time) < ${auto_close_delay_ms})) return {"Open"};
+      return {"Closed"};
     update_interval: 5s
+
+  - platform: wifi_info
+    ssid:
+      name: "WiFi Network"
+      id: wifi_network
+      icon: "mdi:wifi"
 
 # Scripts for gate logic
 script:
@@ -493,15 +507,15 @@ script:
     then:
       - lambda: |-
           std::string state = id(gate_state).state;
-          if (state == "LATCHED_OPEN") {
+          if (state == "Latched") {
             id(do_latch).execute();
-          } else if (state == "OPENING" || state == "CLOSING") {
+          } else if (state == "Opening" || state == "Closing") {
             id(do_stop).execute();
-          } else if (state == "STOP") {
+          } else if (state == "Stop") {
             id(resume_from_stop).execute();
-          } else if (state == "OPEN") {
+          } else if (state == "Open") {
             id(do_close).execute();
-          } else {  // CLOSED
+          } else {  // Closed
             id(do_open).execute();
           }
 
@@ -521,7 +535,7 @@ script:
       # Handle CLOSING separately (needs delays, can't be in lambda)
       - if:
           condition:
-            lambda: 'return id(gate_state).state == "CLOSING";'
+            lambda: 'return id(gate_state).state == "Closing";'
           then:
             - logger.log: "Gate was CLOSING - reversing via P4"
             - lambda: 'id(stop_elapsed_ms) = millis() - id(movement_start_time);'
@@ -551,17 +565,17 @@ script:
             # Handle other states
             - lambda: |-
                 std::string state = id(gate_state).state;
-                if (state == "CLOSED") {
-                  ESP_LOGI("gate", "Gate was CLOSED - now OPENING via passthrough");
+                if (state == "Closed") {
+                  ESP_LOGI("gate", "Gate was Closed - now Opening via passthrough");
                   id(movement_start_time) = millis();
                   id(gate_opening) = true;
                   id(gate_state).update();
                   id(finish_opening).execute();
-                } else if (state == "OPEN") {
-                  ESP_LOGI("gate", "Gate is OPEN - resetting 60s timer");
+                } else if (state == "Open") {
+                  ESP_LOGI("gate", "Gate is Open - resetting 60s timer");
                   id(last_move_time) = millis();
                   id(gate_state).update();
-                } else if (state == "STOP") {
+                } else if (state == "Stop") {
                   // P4 while STOP - need to open the gate
                   id(gate_stopped) = false;
                   if (id(stop_was_opening)) {
@@ -593,7 +607,7 @@ script:
       # Start 60s timer if gate is OPEN
       - if:
           condition:
-            lambda: 'return id(gate_state).state == "OPEN";'
+            lambda: 'return id(gate_state).state == "Open";'
           then:
             - logger.log: "Gate is OPEN - starting 60s timer"
             - lambda: 'id(last_move_time) = millis();'
