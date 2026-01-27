@@ -1,9 +1,12 @@
 #!/bin/bash
 # OTA upload script for gate-controller-test
+# Uses secrets-test.h (separate HiveMQ cluster from production)
 #
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 DEVICE="${1:-gate-controller-test.local}"
 CONFIG="${2:-gate-controller-test.yaml}"
+SECRETS="${3:-secrets-test.h}"
 
-/bin/bash upload.sh "$DEVICE" "$CONFIG"
+/bin/bash "${SCRIPT_DIR}/upload.sh" "$DEVICE" "$CONFIG" "$SECRETS"

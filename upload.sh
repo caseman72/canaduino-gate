@@ -6,17 +6,17 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 DEVICE="${1:-gate-controller.local}"
 CONFIG="${2:-gate-controller.yaml}"
-SECRETS="$SCRIPT_DIR/secrets.h"
+SECRETS="${3:-secrets.h}"
+
+if [[ ! -f "$SCRIPT_DIR/$SECRETS" ]]; then
+    echo "Error: ${SECRETS} not found. Copy secrets.example.h to ${SECRETS} and fill in values."
+    exit 1
+fi
 
 # Parse secrets.h and extract value (no escaping needed - quotes protect from shell)
 parse_secret() {
-    grep "#define $1 " "$SECRETS" | sed 's/.*"\(.*\)"/\1/'
+    grep "#define $1 " "$SCRIPT_DIR/$SECRETS" | sed 's/.*"\(.*\)"/\1/'
 }
-
-if [[ ! -f "$SECRETS" ]]; then
-    echo "Error: secrets.h not found. Copy secrets.example.h to secrets.h and fill in values."
-    exit 1
-fi
 
 WIFI_PRIMARY_SSID=$(parse_secret WIFI_SSID_PRIMARY)
 WIFI_PRIMARY_PASSWORD=$(parse_secret WIFI_PASSWORD_PRIMARY)

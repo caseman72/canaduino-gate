@@ -3,6 +3,7 @@ secrets.h
 
 # ESPHome build artifacts
 .esphome/
+.claude
 
 # macOS
 .DS_Store
@@ -13,3 +14,4 @@ secrets.h
 
 # RCS
 .rcs/
+secrets-test.h
