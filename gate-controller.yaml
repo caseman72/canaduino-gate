@@ -45,6 +45,7 @@ wifi:
   ssid: ${wifi_primary_ssid}
   password: ${wifi_primary_password}
   fast_connect: true  # Skip scan - required for hidden SSID (farmlandMini)
+  reboot_timeout: 15min  # Reboot if WiFi disconnected for 15 min
 
 # Native ESPHome API disabled - using MQTT instead
 # api:
@@ -63,6 +64,7 @@ mqtt:
   topic_prefix: gate
   idf_send_async: true
   log_topic: null
+  reboot_timeout: 15min  # Reboot if MQTT disconnected for 15 min
   on_connect:
     - logger.log: "MQTT Connected!"
   on_disconnect:
@@ -199,6 +201,15 @@ button:
     icon: "mdi:wifi-sync"
     on_press:
       - script.execute: switch_network
+
+  - platform: template
+    name: "P5 Button - Restart"
+    id: btn_restart
+    icon: "mdi:restart"
+    on_press:
+      - logger.log: "Restart requested via P5"
+      - delay: 500ms
+      - lambda: 'App.safe_reboot();'
 
 # Physical inputs
 # Arduino Nano ESP32: D7=GPIO10 (DI1), D8=GPIO17 (DI2), D12=GPIO47 (DI3), D13=GPIO48 (DI4)
