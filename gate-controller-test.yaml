@@ -15,8 +15,8 @@ substitutions:
   ota_password: "PLACEHOLDER"
 
 esphome:
-  name: gate-controller
-  friendly_name: Gate Controller
+  name: gate-controller-test
+  friendly_name: Gate Controller Test
   includes:
     - wifi_switch.h
   on_boot:
@@ -60,7 +60,7 @@ mqtt:
   password: ${mqtt_password}
   discovery: true
   discovery_prefix: homeassistant
-  topic_prefix: gate
+  topic_prefix: gate-test
   idf_send_async: true
   log_topic: null
   on_connect:

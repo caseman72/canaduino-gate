@@ -1,11 +1,11 @@
 #!/bin/bash
 # OTA upload script for gate-controller
-
+#
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 DEVICE="${1:-gate-controller.local}"
-CONFIG="gate-controller.yaml"
+CONFIG="${2:-gate-controller.yaml}"
 SECRETS="$SCRIPT_DIR/secrets.h"
 
 # Parse secrets.h and extract value (no escaping needed - quotes protect from shell)
