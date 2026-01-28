@@ -682,7 +682,12 @@ script:
   - id: handle_p4_off
     then:
       - logger.log: "P4 Car sensor OFF"
-      - switch.turn_off: latch_relay
+      # Only turn off latch relay if gate wasn't manually latched via P2
+      - if:
+          condition:
+            lambda: 'return !id(gate_latched);'
+          then:
+            - switch.turn_off: latch_relay
       - globals.set:
           id: car_sensor_active
           value: 'false'
