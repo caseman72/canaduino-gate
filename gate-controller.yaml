@@ -61,6 +61,7 @@ mqtt:
   password: ${mqtt_password}
   discovery: true
   discovery_prefix: homeassistant
+  discovery_unique_id_generator: mac
   topic_prefix: gate
   idf_send_async: true
   log_topic: null
@@ -350,15 +351,11 @@ text_sensor:
       id: wifi_ip
       icon: "mdi:ip-network"
 
-  - platform: template
-    name: "WiFi Network"
-    id: wifi_network
-    icon: "mdi:wifi-cog"
-    lambda: |-
-      if (id(use_secondary_network)) {
-        return {"${wifi_secondary_ssid}"};
-      }
-      return {"${wifi_primary_ssid}"};
+  - platform: wifi_info
+    ssid:
+      name: "WiFi Network"
+      id: wifi_network
+      icon: "mdi:wifi-cog"
 
 # Scripts for gate logic
 script:
@@ -707,7 +704,6 @@ script:
           } else {
             ESP_LOGI("wifi", "Switching to ${wifi_primary_ssid} - will restart");
           }
-      - component.update: wifi_network
       - delay: 500ms
       - lambda: |-
           App.safe_reboot();

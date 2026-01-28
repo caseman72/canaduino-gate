@@ -4,7 +4,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-DEVICE="${1:-gate-controller.local}"
+DEVICE="${1:-172.24.1.108}"  # gate-controller (3C:84:27:C3:C7:C4)
 CONFIG="${2:-gate-controller.yaml}"
 SECRETS="${3:-secrets.h}"
 
