@@ -10,8 +10,7 @@
 #define WIFI_SSID_SECONDARY "your-secondary-ssid"
 #define WIFI_PASSWORD_SECONDARY "your-secondary-password"
 
-// MQTT broker (HiveMQ Cloud)
-#define MQTT_BROKER "your-cluster.s1.eu.hivemq.cloud"
+#define MQTT_BROKER "your_broker"
 #define MQTT_USERNAME "your-mqtt-username"
 #define MQTT_PASSWORD "your-mqtt-password"
 
