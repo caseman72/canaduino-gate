@@ -16,5 +16,5 @@ MQTT_PASS=$(grep '^#define MQTT_PASSWORD ' "$SECRETS_FILE" | sed 's/#define MQTT
 
 TOPIC="${1:-gate/#}"
 
-mosquitto_sub -h "$MQTT_BROKER" -p 8883 -u "$MQTT_USER" -P "$MQTT_PASS" -t "$TOPIC" --cafile /etc/ssl/cert.pem -v \
+mosquitto_sub -h "$MQTT_BROKER" -p 1883 -u "$MQTT_USER" -P "$MQTT_PASS" -t "$TOPIC" -v \
     | sed -e 's/\x1B\[[0-9;]*[a-zA-Z]//g'
