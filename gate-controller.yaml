@@ -5,10 +5,8 @@ substitutions:
   auto_close_delay_ms: "60000"
 
   # Secrets - override via upload.sh or -s flags
-  wifi_primary_ssid: "PLACEHOLDER"
-  wifi_primary_password: "PLACEHOLDER"
-  wifi_secondary_ssid: "PLACEHOLDER"
-  wifi_secondary_password: "PLACEHOLDER"
+  wifi_ssid: "PLACEHOLDER"
+  wifi_password: "PLACEHOLDER"
   mqtt_broker: "PLACEHOLDER"
   mqtt_username: "PLACEHOLDER"
   mqtt_password: "PLACEHOLDER"
@@ -17,36 +15,6 @@ substitutions:
 esphome:
   name: gate-controller
   friendly_name: Gate Controller
-  includes:
-    - wifi_switch.h
-  on_boot:
-    priority: 599  # Right after globals restored (600), well before WiFi connects (250)
-    then:
-      - lambda: |-
-          ESP_LOGW("boot", "use_secondary_network = %s, primary_fail_count = %d",
-                   id(use_secondary_network) ? "TRUE" : "FALSE", id(primary_fail_count));
-          if (id(use_secondary_network)) {
-            // On secondary - just stay here
-            ESP_LOGW("boot", "Using secondary: ${wifi_secondary_ssid}");
-            wifi::WiFiAP ap;
-            ap.set_ssid("${wifi_secondary_ssid}");
-            ap.set_password("${wifi_secondary_password}");
-            wifi::global_wifi_component->set_sta(ap);
-          } else {
-            // On primary - check fail count for auto-failover
-            id(primary_fail_count)++;
-            if (id(primary_fail_count) >= 2) {
-              ESP_LOGW("boot", "Primary failed %d times - failing over to secondary", id(primary_fail_count));
-              id(use_secondary_network) = true;
-              id(primary_fail_count) = 0;
-              wifi::WiFiAP ap;
-              ap.set_ssid("${wifi_secondary_ssid}");
-              ap.set_password("${wifi_secondary_password}");
-              wifi::global_wifi_component->set_sta(ap);
-            } else {
-              ESP_LOGW("boot", "Using primary: ${wifi_primary_ssid} (fail_count=%d)", id(primary_fail_count));
-            }
-          }
 
 esp32:
   board: arduino_nano_esp32
@@ -56,9 +24,8 @@ esp32:
       CONFIG_LOG_COLORS: "n"
 
 wifi:
-  ssid: ${wifi_primary_ssid}
-  password: ${wifi_primary_password}
-  fast_connect: true  # Skip scan - required for hidden SSID (farmlandMini)
+  ssid: ${wifi_ssid}
+  password: ${wifi_password}
   reboot_timeout: 15min  # Reboot if WiFi disconnected for 15 min
 
 # Native ESPHome API disabled - using MQTT instead
@@ -82,12 +49,6 @@ mqtt:
   reboot_timeout: 15min  # Reboot if MQTT disconnected for 15 min
   on_connect:
     - logger.log: "MQTT Connected!"
-    - lambda: |-
-        // Reset fail count on successful connection to primary
-        if (!id(use_secondary_network) && id(primary_fail_count) > 0) {
-          ESP_LOGI("mqtt", "Resetting primary_fail_count (was %d)", id(primary_fail_count));
-          id(primary_fail_count) = 0;
-        }
   on_disconnect:
     - logger.log: "MQTT Disconnected!"
 
@@ -185,13 +146,6 @@ button:
       - script.execute: handle_p2
 
   - platform: template
-    name: "P3 Button - Switch Network"
-    id: btn_switch_network
-    icon: "mdi:wifi-sync"
-    on_press:
-      - script.execute: switch_network
-
-  - platform: template
     name: "P5 Button - Restart"
     id: btn_restart
     icon: "mdi:restart"
@@ -245,19 +199,6 @@ binary_sensor:
     on_release:
       - script.execute: handle_p4_off
 
-  - platform: gpio
-    pin:
-      number: 47
-      mode: INPUT_PULLDOWN
-    name: "Input P3 Network"
-    id: p3_input
-    icon: "mdi:wifi-sync"
-    filters:
-      - delayed_on: 100ms
-      - delayed_off: 100ms
-    on_press:
-      - script.execute: switch_network
-
   # Relay state indicators (read-only in HA)
   - platform: template
     name: "Relay 1 Move"
@@ -295,14 +236,6 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
-  - id: use_secondary_network
-    type: bool
-    restore_value: yes
-    initial_value: 'false'
-  - id: primary_fail_count
-    type: int
-    restore_value: yes
-    initial_value: '0'
   # STOP state tracking
   - id: gate_stopped
     type: bool
@@ -692,18 +625,3 @@ script:
             - logger.log: "Gate is OPEN - starting 60s timer"
             - lambda: 'id(last_move_time) = millis();'
             - script.execute: notify_auto_close
-
-  - id: switch_network
-    then:
-      - lambda: |-
-          id(use_secondary_network) = !id(use_secondary_network);
-          if (id(use_secondary_network)) {
-            ESP_LOGI("wifi", "Switching to ${wifi_secondary_ssid} - will restart");
-          } else {
-            // Switching to primary - reset fail count for fresh start
-            id(primary_fail_count) = 0;
-            ESP_LOGI("wifi", "Switching to ${wifi_primary_ssid} - will restart (fail_count reset)");
-          }
-      - delay: 500ms
-      - lambda: |-
-          App.safe_reboot();

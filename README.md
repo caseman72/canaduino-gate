@@ -16,7 +16,7 @@ ESPHome-based gate controller running on an Arduino Nano ESP32 mounted on a Cana
 |----------|-------------|------|-----------|
 | P1 Remote Input | D7 | 10 | Input |
 | P2 Remote Input | D8 | 17 | Input |
-| P3 Network Switch | D12 | 47 | Input |
+| P3 (unused) | D12 | 47 | Input |
 | P4 Car Sensor | D13 | 48 | Input |
 | Move Relay | D2 | 5 | Output |
 | Latch Relay | D3 | 6 | Output |
@@ -72,12 +72,10 @@ substitutions:
 - If **CLOSED**: Latch open
 - If **LATCHED_OPEN**: Unlatch and close
 
-### P3 (Network Switch)
-- Toggle between WiFi networks
-- **Primary (default):** Starlink (DishyMcFlatface)
-- **Secondary:** Farmland (for OTA updates from home)
-- Network selection persists across reboots
-- Can also be triggered via Home Assistant button
+### P3 (unused)
+- Previously toggled between Starlink and farmland networks
+- Starlink system removed; gate now uses farmland only
+- Pin still wired but no logic attached
 
 ### P4 (Car Sensor)
 - Magnetic sensor that detects vehicles
@@ -102,7 +100,6 @@ Uses HiveMQ Cloud with TLS on port 8883.
 **Controls:**
 - `gate/button/open_gate/command` - Send "PRESS" to open
 - `gate/button/latch_gate/command` - Send "PRESS" to toggle latch
-- `gate/button/switch_network/command` - Send "PRESS" to toggle WiFi network
 
 **Relays (direct access):**
 - `gate/switch/gate_latch/command` - "ON" or "OFF"
