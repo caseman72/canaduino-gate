@@ -4,7 +4,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-DEVICE="${1:-172.24.1.107}"  # gate-controller (3C:84:27:C3:C7:C4)
+DEVICE="${1:-gate-controller.local}"  # 172.24.1.107 (3C:84:27:C3:C7:C4)
 CONFIG="${2:-gate-controller.yaml}"
 SECRETS="${3:-secrets.h}"
 
@@ -24,6 +24,18 @@ MQTT_BROKER=$(parse_secret MQTT_BROKER)
 MQTT_USERNAME=$(parse_secret MQTT_USERNAME)
 MQTT_PASSWORD=$(parse_secret MQTT_PASSWORD)
 OTA_PASSWORD=$(parse_secret OTA_PASSWORD)
+
+# Safety: refuse to flash an IP that isn't the gate controller (the old test
+# board, MAC 3C:84:27:C2:F9:1C, is now revel-monitor). Uses the gate's retained
+# MQTT IP report.
+if [[ "$DEVICE" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    GATE_IP=$(mosquitto_sub -h "$MQTT_BROKER" -p 1883 -u "$MQTT_USERNAME" -P "$MQTT_PASSWORD" \
+        -t gate/sensor/ip_address/state -C 1 -W 5 2>/dev/null || true)
+    if [[ "$GATE_IP" != "$DEVICE" ]]; then
+        echo "Error: $DEVICE is not the gate controller (MQTT reports gate at '${GATE_IP:-unknown}')."
+        exit 1
+    fi
+fi
 
 echo "Uploading to $DEVICE..."
 cd "$SCRIPT_DIR"

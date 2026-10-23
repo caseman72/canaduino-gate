@@ -14,5 +14,4 @@ secrets.h
 
 # RCS
 .rcs/
-secrets-test.h
 *.bak*

@@ -90,33 +90,39 @@ substitutions:
 ## MQTT
 
 ### Broker
-Uses HiveMQ Cloud with TLS on port 8883.
+Uses the local Mosquitto broker at `hive.manion.org` on port 1883 (no TLS). Set via `MQTT_BROKER` in `secrets.h`.
 
 ### Topics
 
 **State:**
-- `gate/sensor/gate_state/state` - Current gate state
+- `gate/status` - `online` / `offline` (availability)
+- `gate/sensor/gate_status/state` - Current gate state (`Closed`, `Opening`, `Open`, `Stop`, `Closing`, `Latched`)
 
 **Controls:**
-- `gate/button/open_gate/command` - Send "PRESS" to open
-- `gate/button/latch_gate/command` - Send "PRESS" to toggle latch
+- `gate/button/p1_button_-_open/command` - Send "PRESS" to open (same as P1)
+- `gate/button/p2_button_-_latch/command` - Send "PRESS" to toggle latch (same as P2)
+- `gate/button/p5_button_-_restart/command` - Send "PRESS" to reboot
 
-**Relays (direct access):**
-- `gate/switch/gate_latch/command` - "ON" or "OFF"
-- `gate/switch/gate_move/command` - "ON" or "OFF"
+**Relays (read-only):**
+- `gate/binary_sensor/relay_1_move/state` - "ON" or "OFF"
+- `gate/binary_sensor/relay_2_latch/state` - "ON" or "OFF"
 
 ### Home Assistant
 
 MQTT discovery is enabled with prefix `homeassistant`. HA will auto-discover all entities when connected to the same broker.
 
+Button entities:
+- `button.gate_controller_p1_button_open`
+- `button.gate_controller_p2_button_latch`
+- `button.gate_controller_p5_button_restart`
+
 HA MQTT configuration:
 ```yaml
 mqtt:
-  broker: <your-hivemq-broker>.s1.eu.hivemq.cloud
-  port: 8883
+  broker: hive.manion.org
+  port: 1883
   username: <username>
   password: <password>
-  certificate: auto
 ```
 
 ## Setup
