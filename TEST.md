@@ -105,6 +105,17 @@ Manual test cases for gate-controller.yaml
 
 ---
 
+## Security Lock
+
+- [ ] Turn ON `Security Lock` in HA
+- [ ] Press P1 (remote/keypad) → No change, log shows "P1 ignored"
+- [ ] Press P2 → No change, log shows "P2 ignored"
+- [ ] Press HA P1 button → Gate opens normally
+- [ ] Trigger P4 → Gate opens and `Security Lock` turns OFF
+- [ ] Reboot with lock ON → Lock is still ON after boot
+
+---
+
 ## MQTT Controls
 
 ### Open Gate Button

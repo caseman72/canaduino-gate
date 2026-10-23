@@ -83,6 +83,13 @@ substitutions:
 - **OFF**: Starts 60s auto-close timer
 - Parking a car next to sensor keeps gate open indefinitely
 
+### Security Lock (HA switch)
+- `switch.gate_controller_security_lock` - automate ON at night in HA
+- While **ON**: physical P1 (remote/keypad) and P2 are ignored
+- HA buttons (P1/P2) still work
+- P4 still opens the gate and turns the lock **OFF** (leaving in the morning unlocks it, and you can't get locked in)
+- State is restored after a reboot
+
 ### Auto-close from STOP
 - If was **OPENING** for X seconds: Auto-close will **CLOSE** for X seconds
 - If was **CLOSING** for X seconds: Auto-close will **CLOSE** for remaining (15s - X) seconds

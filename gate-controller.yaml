@@ -129,6 +129,20 @@ switch:
     internal: true
     restore_mode: ALWAYS_OFF
 
+  # Security lock - ON blocks physical P1 (remote/keypad) and P2.
+  # HA buttons still work; P4 car sensor still opens and clears the lock.
+  # Restored across reboots so a night-time lock survives a power blip.
+  - platform: template
+    name: "Security Lock"
+    id: security_lock
+    icon: "mdi:shield-lock"
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    on_turn_on:
+      - logger.log: "Security lock ON - physical P1/P2 disabled"
+    on_turn_off:
+      - logger.log: "Security lock OFF"
+
 # Production MQTT controls for Home Assistant
 button:
   - platform: template
@@ -169,7 +183,13 @@ binary_sensor:
       - delayed_on: 100ms
       - delayed_off: 100ms
     on_press:
-      - script.execute: handle_p1
+      - if:
+          condition:
+            switch.is_on: security_lock
+          then:
+            - logger.log: "P1 ignored - security lock ON"
+          else:
+            - script.execute: handle_p1
 
   - platform: gpio
     pin:
@@ -182,7 +202,13 @@ binary_sensor:
       - delayed_on: 100ms
       - delayed_off: 100ms
     on_press:
-      - script.execute: handle_p2
+      - if:
+          condition:
+            switch.is_on: security_lock
+          then:
+            - logger.log: "P2 ignored - security lock ON"
+          else:
+            - script.execute: handle_p2
 
   - platform: gpio
     pin:
@@ -195,6 +221,7 @@ binary_sensor:
       - delayed_on: 100ms
       - delayed_off: 100ms
     on_press:
+      - switch.turn_off: security_lock  # Leaving in the morning clears the lock
       - script.execute: handle_p4_on
     on_release:
       - script.execute: handle_p4_off
